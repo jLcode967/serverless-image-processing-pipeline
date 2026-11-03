@@ -1,112 +1,93 @@
 # Serverless Image Processing Pipeline
 
-An event-driven serverless architecture built on AWS that automatically resizes images uploaded to an Amazon S3 bucket using AWS Lambda, orchestrated via AWS Step Functions, and exposed externally through an API Gateway endpoint.
+An event-driven serverless application built on AWS that automatically resizes uploaded images into thumbnails. The workflow integrates an **API Gateway** endpoint to trigger an **AWS Step Functions** state machine, which orchestrates a Python **AWS Lambda** function utilizing **Pillow** to process and save images between two **Amazon S3** buckets.
 
-## Architecture Diagram
-[ API Gateway ] --> [ Step Functions State Machine ] --> [ Lambda Function (Pillow) ] --> [ Destination S3 Bucket ]
+---
 
-## Prerequisites
-- An active AWS Account.
-- Python 3.11+ installed locally (for code editing reference).
-- Pillow library layer configured on the AWS Lambda function.
+## Architecture Overview
 
-## Detailed Deployment Instructions
+```text
+[ API Gateway (POST /process) ] 
+       │
+       ▼
+[ Step Functions (ImageProcessingPipeline) ]
+       │
+       ▼
+[ Lambda Function (ResizeImage) ] ──> Reads from Source S3 Bucket
+       │
+       ▼
+[ Destination S3 Bucket ] (Saves thumbnail-<filename>)
 
-### 1. Amazon S3 Buckets Setup
-- Create a source bucket for raw images: `serverless-pipeline-source-bucket`
-- Create a destination bucket for thumbnails: `serverless-pipeline-dest-bucket`
+```
 
-### 2. Lambda Function Configuration
-- Create a Lambda function named `ResizeImage` using Python 3.11.
-- Attach a Pillow layer to support image manipulation.
-- Configure an environment variable `DEST_BUCKET` pointing to your destination S3 bucket.
-- Paste the source code from `lambda_function.py`.
+---
 
-### 3. Step Functions Workflow
-- Create a Standard State Machine named `ImageProcessingWorkflow`.
-- Use the provided ASL definition pointing to your `ResizeImage` Lambda function ARN.
-- Ensure the automatically generated IAM execution role permits Lambda invocation.
+## Project Resources & Configuration
 
-### 4. API Gateway Integration
-- Create a REST API (`ImageProcessingAPI`) with a POST method targeting the Step Functions `StartExecution` action.
+* **Source S3 Bucket:** `serverless-pipeline-source-jliu-2026` (Stores raw, original images)
+* **Destination S3 Bucket:** `serverless-pipeline-dest-bucket` *(or your custom destination bucket name)* (Stores resized 200x200 thumbnails)
+* **Lambda Function:** `ResizeImage` (Python 3.11 with Pillow layer attached and `DEST_BUCKET` environment variable configured)
+* **Step Functions State Machine:** `ImageProcessingPipeline` (Standard workflow containing task invocation, choice state validation, success, and fail states)
+* **API Gateway:** `ImageProcessingAPI` (REST API with a `POST /process` method mapped to trigger Step Functions via `StartExecution`)
 
-## Testing
-Upload a test `.jpg` or `.png` image to your source S3 bucket, trigger the execution ## Prerequisites
-- An active AWS Account.
-- Python 3.11+ installed locally (for code editing reference).
-- Pillow library layer configured on the AWS Lambda function.
+---
 
-## Detailed Deployment Instructions
+## Repository Contents
 
-### 1. Amazon S3 Buckets Setup
-- Create a source bucket for raw images: `serverless-pipeline-source-bucket`
-- Create a destination bucket for thumbnails: `serverless-pipeline-dest-bucket`
+* `lambda_function.py` — The Python code for the resizing Lambda function, built to handle both direct JSON payloads and event triggers robustly.
+* `state-machine.json` — The Amazon States Language (ASL) JSON definition for the Step Functions workflow.
 
-### 2. Lambda Function Configuration
-- Create a Lambda function named `ResizeImage` using Python 3.11.
-- Attach a Pillow layer to support image manipulation.
-- Configure an environment variable `DEST_BUCKET` pointing to your destination S3 bucket.
-- Paste the source code from `lambda_function.py`.
+---
 
-### 3. Step Functions Workflow
-- Create a Standard State Machine named `ImageProcessingWorkflow`.
-- Use the provided ASL definition pointing to your `ResizeImage` Lambda function ARN.
-- Ensure the automatically generated IAM execution role permits Lambda invocation.
-
-### 4. API Gateway Integration
-- Create a REST API (`ImageProcessingAPI`) with a POST method targeting the Step Functions `StartExecution` action.
-
-## Testing
-Upload a test `.jpg` or `.png` image to your source S3 bucket, trigger the execution ## Prerequisites
-- An active AWS Account.
-- Python 3.11+ installed locally (for code editing reference).
-- Pillow library layer configured on the AWS Lambda function.
-
-## Detailed Deployment Instructions
+## Setup & Deployment Steps
 
 ### 1. Amazon S3 Buckets Setup
-- Create a source bucket for raw images: `serverless-pipeline-source-bucket`
-- Create a destination bucket for thumbnails: `serverless-pipeline-dest-bucket`
+
+1. Create a source S3 bucket to hold your original raw images.
+2. Create a destination S3 bucket to hold the processed thumbnails.
 
 ### 2. Lambda Function Configuration
-- Create a Lambda function named `ResizeImage` using Python 3.11.
-- Attach a Pillow layer to support image manipulation.
-- Configure an environment variable `DEST_BUCKET` pointing to your destination S3 bucket.
-- Paste the source code from `lambda_function.py`.
+
+1. Create a Python 3.11 Lambda function named `ResizeImage`.
+2. Attach a Pillow layer to support image manipulation.
+3. Add an environment variable named `DEST_BUCKET` and set its value to your destination bucket's name.
+4. Paste the code from `lambda_function.py` into the code editor and click **Deploy**.
 
 ### 3. Step Functions Workflow
-- Create a Standard State Machine named `ImageProcessingWorkflow`.
-- Use the provided ASL definition pointing to your `ResizeImage` Lambda function ARN.
-- Ensure the automatically generated IAM execution role permits Lambda invocation.
+
+1. Create a Standard State Machine named `ImageProcessingPipeline`.
+2. Choose **Edit in code editor** and paste the contents of `state-machine.json`, replacing the placeholder Lambda ARN with your actual `ResizeImage` Lambda function ARN.
+3. Allow Step Functions to auto-generate or link its IAM execution role with permissions to invoke Lambda.
 
 ### 4. API Gateway Integration
-- Create a REST API (`ImageProcessingAPI`) with a POST method targeting the Step Functions `StartExecution` action.
 
-## Testing
-Upload a test `.jpg` or `.png` image to your source S3 bucket, trigger the execution ## Prerequisites
-- An active AWS Account.
-- Python 3.11+ installed locally (for code editing reference).
-- Pillow library layer configured on the AWS Lambda function.
+1. Create a REST API named `ImageProcessingAPI` with a resource path `/process` and a `POST` method.
+2. Configure **AWS Service Integration** pointing to Step Functions (`StartExecution`).
+3. Set up an IAM role (`APIGatewayToStepFunctionsRole`) with explicit `states:StartExecution` permissions on your state machine and proper trust relationships for API Gateway.
+4. Add a mapping template for application/json passing the input payload:
+```json
+{
+  "input": "$util.escapeJavaScript($input.body)",
+  "stateMachineArn": "arn:aws:states:us-east-1:YOUR_ACCOUNT_ID:stateMachine:ImageProcessingPipeline"
+}
 
-## Detailed Deployment Instructions
+```
 
-### 1. Amazon S3 Buckets Setup
-- Create a source bucket for raw images: `serverless-pipeline-source-bucket`
-- Create a destination bucket for thumbnails: `serverless-pipeline-dest-bucket`
+5. Deploy the API to a `prod` stage.
 
-### 2. Lambda Function Configuration
-- Create a Lambda function named `ResizeImage` using Python 3.11.
-- Attach a Pillow layer to support image manipulation.
-- Configure an environment variable `DEST_BUCKET` pointing to your destination S3 bucket.
-- Paste the source code from `lambda_function.py`.
+---
 
-### 3. Step Functions Workflow
-- Create a Standard State Machine named `ImageProcessingWorkflow`.
-- Use the provided ASL definition pointing to your `ResizeImage` Lambda function ARN.
-- Ensure the automatically generated IAM execution role permits Lambda invocation.
+## Testing the Application
 
-### 4. API Gateway Integration
-- Create a REST API (`ImageProcessingAPI`) with a POST method targeting the Step Functions `StartExecution` action.
+1. In the API Gateway console under the **Test** tab for your `POST /process` method, send a test payload:
+```json
+{
+    "source_bucket": "serverless-pipeline-source-jliu-2026",
+    "object_key": "test-image.jpg"
+}
 
-## Testing
-Upload a test `.jpg` or `.png` image to your source S3 bucket, trigger the execution via Step Functions or API Gateway, and verify that the corresponding resized thumbnail appears in your destination S3 bucket.
+```
+
+2. Confirm you receive a `200 OK` response with a valid execution ARN.
+3. Check your AWS Step Functions console to verify the execution finished with a green **Succeeded** status.
+4. Open your destination S3 bucket to verify that the resized file (`thumbnail-test-image.jpg`) has been successfully created.
