@@ -1,0 +1,35 @@
+{
+  "Comment": "Serverless Image Processing Workflow",
+  "StartAt": "ResizeImageTask",
+  "States": {
+    "ResizeImageTask": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:348542648631:function:ResizeImage",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.lambdaResult",
+      "Next": "CheckSuccess"
+    },
+    "CheckSuccess": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.lambdaResult.StatusCode",
+          "NumericEquals": 200,
+          "Next": "ProcessingSuccess"
+        }
+      ],
+      "Default": "ProcessingFail"
+    },
+    "ProcessingSuccess": {
+      "Type": "Succeed"
+    },
+    "ProcessingFail": {
+      "Type": "Fail",
+      "Error": "ImageProcessingFailed",
+      "Cause": "The image resizing lambda function did not return status code 200."
+    }
+  }
+}
