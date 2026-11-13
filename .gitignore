@@ -1,0 +1,26 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Local environment variables and secrets
+.env
+*.pem
+*.key
+
+# Packaging and build artifacts (if zipping Lambda layers locally)
+*.zip
+build/
+dist/
+*.egg-info/
+
+# OS and editor clutter
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
